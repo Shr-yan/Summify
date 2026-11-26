@@ -1,4 +1,4 @@
-
+import os
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from transformers import T5ForConditionalGeneration, T5Tokenizer
@@ -20,8 +20,14 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Model and Tokenizer
-tokenizer = T5Tokenizer.from_pretrained("./saved_summary_model")
-model = T5ForConditionalGeneration.from_pretrained("./saved_summary_model")
+
+MODEL_ID = "shr-yan/Summify"
+
+tokenizer = T5Tokenizer.from_pretrained(MODEL_ID)
+model = T5ForConditionalGeneration.from_pretrained(MODEL_ID)
+
+# tokenizer = T5Tokenizer.from_pretrained("./saved_summary_model")
+# model = T5ForConditionalGeneration.from_pretrained("./saved_summary_model")
 
 # Device
 if torch.backends.mps.is_available():
