@@ -1,10 +1,11 @@
 
-import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
-
 const form = document.getElementById("summarization-form");
 const dialogueInput = document.getElementById("dialogue-input");
 const summaryText = document.getElementById("summary-text");
 const submitButton = form.querySelector("button");
+
+// Replace with your actual Cloudflare API Worker URL
+const API_URL = "https://summify-api-proxy.2shreyansh8.workers.dev/";
 
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -18,33 +19,30 @@ form.addEventListener("submit", async (e) => {
 
     submitButton.disabled = true;
     submitButton.textContent = "Summarizing...";
-    summaryText.innerText = "Connecting to AI...";
+    summaryText.innerText = "Connecting to Summify AI...";
 
     try {
-        console.log("Connecting to Hugging Face Space...");
+        const response = await fetch(API_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ dialogue }),
+        });
 
-        const client = await Client.connect("Shr-yan/summify-AI");
+        const data = await response.json();
 
-        console.log("Connected. Calling API...");
+        if (!response.ok) {
+            throw new Error(data.error || "Server error");
+        }
 
-        const result = await client.predict(
-            "/summarize_dialogue",
-            {
-                dialogue: dialogue
-            }
-        );
-
-        console.log("API result:", result);
-
-        summaryText.innerText =
-            result.data?.[0] ?? "No summary returned.";
+        summaryText.innerText = data.summary || "No summary returned.";
 
     } catch (error) {
-        console.error("Full error:", error);
+        console.error("Summarization error:", error);
 
         summaryText.innerText =
-            "Error: " + (error.message || String(error));
-
+            "Error: " + error.message;
     } finally {
         submitButton.disabled = false;
         submitButton.textContent = "Summarize";
