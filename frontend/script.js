@@ -18,15 +18,15 @@ form.addEventListener("submit", async (e) => {
 
     submitButton.disabled = true;
     submitButton.textContent = "Summarizing...";
-    summaryText.innerText = "Connecting to Summify AI...";
+    summaryText.innerText = "Connecting to AI...";
 
     try {
-        // Connect to your Hugging Face Space
-        const client = await Client.connect("Shr-yan/Summify-AI");
+        console.log("Connecting to Hugging Face Space...");
 
-        summaryText.innerText = "Generating summary...";
+        const client = await Client.connect("Shr-yan/summify-AI");
 
-        // Call your exact API endpoint
+        console.log("Connected. Calling API...");
+
         const result = await client.predict(
             "/summarize_dialogue",
             {
@@ -34,15 +34,17 @@ form.addEventListener("submit", async (e) => {
             }
         );
 
-        // Gradio returns outputs inside result.data
+        console.log("API result:", result);
+
         summaryText.innerText =
             result.data?.[0] ?? "No summary returned.";
 
     } catch (error) {
-        console.error("Summarization error:", error);
+        console.error("Full error:", error);
 
         summaryText.innerText =
-            "Something went wrong. The AI server may be sleeping or busy. Please try again.";
+            "Error: " + (error.message || String(error));
+
     } finally {
         submitButton.disabled = false;
         submitButton.textContent = "Summarize";
