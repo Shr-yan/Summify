@@ -1,11 +1,10 @@
-
 const form = document.getElementById("summarization-form");
 const dialogueInput = document.getElementById("dialogue-input");
 const summaryText = document.getElementById("summary-text");
 const submitButton = form.querySelector("button");
 
-// Replace this with your actual new Cloudflare API Proxy URL
-const API_URL = "https://summify-api-proxy.2shreyansh8.workers.dev/";
+// Cloudflare API Proxy
+const API_URL = "https://summify-api-proxy.2shreyansh8.workers.dev";
 
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -30,7 +29,14 @@ form.addEventListener("submit", async (e) => {
             body: JSON.stringify({ dialogue })
         });
 
-        const data = await response.json();
+        const raw = await response.text();
+
+        let data;
+        try {
+            data = JSON.parse(raw);
+        } catch {
+            throw new Error("Proxy returned an invalid response. Check Cloudflare Worker.");
+        }
 
         if (!response.ok) {
             throw new Error(data.error || "Server error");
