@@ -1,43 +1,41 @@
-import os
+
+import re
+import torch
+
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from transformers import T5ForConditionalGeneration, T5Tokenizer
-import torch
-import re
-
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+# Reduce CPU thread overhead on small hosting instances
+torch.set_num_threads(1)
+
 # Initialize FastAPI
 app = FastAPI(
-    title="Summifier App",
+    title="Summify",
     description="Text summarization using T5",
     version="1.0"
 )
 
-# Serve CSS and JavaScript from the static folder
+# Static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Model and Tokenizer
-
-MODEL_ID = "shr-yan/Summify"
+# Hugging Face Model
+MODEL_ID = "Shr-yan/Summify"
 
 tokenizer = T5Tokenizer.from_pretrained(MODEL_ID)
-model = T5ForConditionalGeneration.from_pretrained(MODEL_ID)
 
-# tokenizer = T5Tokenizer.from_pretrained("./saved_summary_model")
-# model = T5ForConditionalGeneration.from_pretrained("./saved_summary_model")
+model = T5ForConditionalGeneration.from_pretrained(
+    MODEL_ID,
+    use_safetensors=True
+)
 
-# Device
-if torch.backends.mps.is_available():
-    device = torch.device("mps")
-elif torch.cuda.is_available():
-    device = torch.device("cuda")
-else:
-    device = torch.device("cpu")
-
+# CPU deployment
+device = torch.device("cpu")
 model.to(device)
+model.eval()
 
 # Templates
 templates = Jinja2Templates(directory="templates")
@@ -49,11 +47,11 @@ class DialogueInput(BaseModel):
 
 
 # Cleaning function
-def clean_data(text):
-    text = re.sub(r"\r\n", " ", text)
-    text = re.sub(r"\s+", " ", text)
+def clean_data(text: str) -> str:
+    text = re.sub(r"\r\n|\r|\n", " ", text)
     text = re.sub(r"<.*?>", " ", text)
-    text = text.strip().lower()
+    text = re.sub(r"\s+", " ", text)
+    text = text.strip()
     return text
 
 
@@ -65,19 +63,19 @@ def summarize_dialogue(dialogue: str) -> str:
 
     inputs = tokenizer(
         dialogue,
-        padding="max_length",
         max_length=512,
         truncation=True,
         return_tensors="pt"
     ).to(device)
 
-    targets = model.generate(
-        input_ids=inputs["input_ids"],
-        attention_mask=inputs["attention_mask"],
-        max_length=150,
-        num_beams=4,
-        early_stopping=True
-    )
+    with torch.inference_mode():
+        targets = model.generate(
+            input_ids=inputs["input_ids"],
+            attention_mask=inputs["attention_mask"],
+            max_length=150,
+            num_beams=2,
+            early_stopping=True
+        )
 
     summary = tokenizer.decode(
         targets[0],
@@ -92,7 +90,7 @@ def summarize_dialogue(dialogue: str) -> str:
     return summary
 
 
-# API endpoint
+# Summarization API
 @app.post("/summarize/")
 async def summarize(dialogue_input: DialogueInput):
 
@@ -101,16 +99,17 @@ async def summarize(dialogue_input: DialogueInput):
     return {"summary": summary}
 
 
-# Home page
+# Homepage
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
+
     return templates.TemplateResponse(
         request=request,
         name="index.html"
     )
 
 
-# Run locally
+# Local execution
 if __name__ == "__main__":
     import uvicorn
 
