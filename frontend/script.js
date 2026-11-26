@@ -1,24 +1,93 @@
+
 const form = document.getElementById("summarization-form");
 const dialogueInput = document.getElementById("dialogue-input");
 const summaryText = document.getElementById("summary-text");
-const submitButton = form.querySelector("button");
+const characterCount = document.getElementById("character-count");
 
-// Cloudflare API Proxy
+const clearBtn = document.getElementById("clear-btn");
+const copyBtn = document.getElementById("copy-btn");
+const copyLabel = document.getElementById("copy-label");
+
+const emptyState = document.getElementById("empty-state");
+const submitButton = document.getElementById("summarize-btn");
+const buttonContent = document.getElementById("button-content");
+const loader = document.getElementById("loader");
+
 const API_URL = "https://summify-api-proxy.2shreyansh8.workers.dev";
 
+// -----------------------------
+// Character Counter
+// -----------------------------
+function updateCharacterCount() {
+    const count = dialogueInput.value.length;
+    characterCount.textContent = `${count} characters`;
+}
+
+dialogueInput.addEventListener("input", updateCharacterCount);
+
+// -----------------------------
+// Clear Input and Summary
+// -----------------------------
+clearBtn.addEventListener("click", () => {
+    dialogueInput.value = "";
+    summaryText.textContent = "";
+
+    emptyState.style.display = "";
+    copyBtn.disabled = true;
+
+    updateCharacterCount();
+    dialogueInput.focus();
+});
+
+// -----------------------------
+// Copy Summary
+// -----------------------------
+copyBtn.addEventListener("click", async () => {
+    const text = summaryText.textContent.trim();
+
+    if (!text) return;
+
+    try {
+        await navigator.clipboard.writeText(text);
+
+        copyLabel.textContent = "Copied!";
+
+        setTimeout(() => {
+            copyLabel.textContent = "Copy";
+        }, 1500);
+
+    } catch (error) {
+        console.error("Copy error:", error);
+        copyLabel.textContent = "Failed";
+
+        setTimeout(() => {
+            copyLabel.textContent = "Copy";
+        }, 1500);
+    }
+});
+
+// -----------------------------
+// Summarization
+// -----------------------------
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const dialogue = dialogueInput.value.trim();
 
     if (!dialogue) {
-        summaryText.innerText = "Please enter text first.";
+        summaryText.textContent = "Please enter text first.";
+        emptyState.style.display = "none";
+        copyBtn.disabled = true;
         return;
     }
 
     submitButton.disabled = true;
-    submitButton.textContent = "Summarizing...";
-    summaryText.innerText = "Connecting to Summify AI...";
+    buttonContent.style.display = "none";
+    loader.style.display = "inline-block";
+
+    summaryText.textContent = "";
+    emptyState.style.display = "none";
+    copyBtn.disabled = true;
 
     try {
         const response = await fetch(API_URL, {
@@ -32,24 +101,40 @@ form.addEventListener("submit", async (e) => {
         const raw = await response.text();
 
         let data;
+
         try {
             data = JSON.parse(raw);
         } catch {
-            throw new Error("Proxy returned an invalid response. Check Cloudflare Worker.");
+            throw new Error("Invalid response from API proxy.");
         }
 
         if (!response.ok) {
-            throw new Error(data.error || "Server error");
+            throw new Error(data.error || "Summarization failed.");
         }
 
-        summaryText.innerText = data.summary || "No summary received.";
+        if (!data.summary) {
+            throw new Error("No summary returned by AI.");
+        }
+
+        summaryText.textContent = data.summary;
+        copyBtn.disabled = false;
 
     } catch (error) {
-        console.error("Full error:", error);
-        summaryText.innerText = "Error: " + error.message;
+        console.error("Summarization error:", error);
+
+        summaryText.textContent = "Error: " + error.message;
+        copyBtn.disabled = true;
 
     } finally {
         submitButton.disabled = false;
-        submitButton.textContent = "Summarize";
+        buttonContent.style.display = "";
+        loader.style.display = "none";
     }
 });
+
+// -----------------------------
+// Initial Setup
+// -----------------------------
+updateCharacterCount();
+copyBtn.disabled = true;
+loader.style.display = "none";
